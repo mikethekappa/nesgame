@@ -29,7 +29,11 @@ void main(void) {
 
   // write text to name table
   vram_adr(NTADR_A(1,1));		// set address
-  vram_write("There is no ram left, Seymour\x19  ", 32);// write bytes to video RAM
+  vram_write("This is", 7);// write bytes to video RAM
+  vram_adr(NTADR_A(1,2));
+  vram_write("John Gilliland's", 16);// write bytes to video RAM
+  vram_adr(NTADR_A(1,3));
+  vram_write("First Nes Game", 14);// write bytes to video RAM
   
 
   // enable PPU rendering (turn on screen)
@@ -41,7 +45,8 @@ void main(void) {
     char cur_oam = 0;
     if(left){
       x-= 1;
-      cur_oam = oam_spr(x, 100, 0x3f, 0x0, cur_oam);
+      cur_oam = oam_spr(x, 100, 0x3f, 0x40, cur_oam);
+      vrambuf_put(NTADR_A(1, 4), "On door", 7);
     }
     else{
       x+=1;
@@ -50,7 +55,7 @@ void main(void) {
     if (x < 8){
       left = false;
     }
-    if (x > 230){
+    if (x > 238){
       left = true;
     }
     vrambuf_flush();
