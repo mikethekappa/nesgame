@@ -51,6 +51,7 @@ void main(void) {
     else{
       x+=1;
       cur_oam = oam_spr(x, 100, 0x3f, 0x0, cur_oam);
+      vrambuf_put(NTADR_A(1, 4), "       ", 7);
     }
     if (x < 8){
       left = false;
