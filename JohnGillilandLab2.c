@@ -32,6 +32,14 @@ const unsigned char map1[226]={
 0x01,0x00
 };
 
+const unsigned int map1data[226] = {
+  3,3,3,3,3,3,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,
+  3,3,3,3,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,3,3,
+  3,3,3,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,
+  3,3,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+  3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,
+};
+
 
 
 
@@ -77,14 +85,16 @@ void main(void) {
   unsigned int turn = 49;
   unsigned int x = 15;
   unsigned int t = 0;
-  unsigned int cur_x = 64;
-  unsigned int cur_y = 64;
+  signed int cur_x = 64;
+  signed int cur_y = 64;
   unsigned int limit_x = 240;
   bool scrolled = false;
   char pad;
   bool left = true;
   bool moved_x = false;
   bool moved_y = false;
+  bool p_phase = true;
+  bool p_phase_controller = false;
   
   //player char info
   unsigned int p_hp = 20;
@@ -92,9 +102,19 @@ void main(void) {
   unsigned int p_hit = 95;
   unsigned int p_def = 2;
   unsigned int p_crit = 5;
-  unsigned int p_x = 16;
-  unsigned int p_y = 128;
+  signed int p_x = 16;
+  signed int p_y = 128;
   bool p_locked = false;
+  
+  //enemy info
+  unsigned int e_hp = 10;
+  unsigned int e_atk = 6;
+  unsigned int e_hit = 75;
+  unsigned int e_def = 0;
+  unsigned int e_crit = 0;
+  unsigned int e_x = 200;
+  unsigned int e_y = 56;
+  
   
   unsigned int portrait_x = 250;
   unsigned int portrait_y = 250;
@@ -122,64 +142,152 @@ void main(void) {
   while (1) {
     char cur_oam = 0;
     unsigned int i = 0;
-    //pad = 0;
-    pad = pad_poll(i);
-    for(i = 0; i < 2; i++){
-      // move actor[i] left/right
-      if (pad&PAD_LEFT && cur_x>8 && !moved_x){ cur_x+=-8; moved_x = true;}
-      else if (pad&PAD_RIGHT && cur_x<240 && !moved_x){ moved_x = true; cur_x+=8;}
-      else if (pad&PAD_RIGHT && cur_x>=240 && !scrolled && !moved_x){
-        scroll(256, 0);
-        scrolled = true;
-        moved_x = true;
-        cur_x = 8;
+    if (p_phase){
+      if (p_phase_controller){
+        p_phase = false;
+        p_phase_controller = false;
       }
-      else if (pad&PAD_LEFT && cur_x<=8 && scrolled){ 
-        scroll(0, 0);
-        scrolled = false;
-        moved_x = true;
-        cur_x = 240;
+      pad = pad_poll(i);
+      for(i = 0; i < 2; i++){
+        // move actor[i] left/right
+        if (pad&PAD_LEFT && cur_x>8 && !moved_x){ cur_x+=-8; moved_x = true;}
+        else if (pad&PAD_RIGHT && cur_x<240 && !moved_x){ moved_x = true; cur_x+=8;}
+        else if (pad&PAD_RIGHT && cur_x>=240 && !scrolled && !moved_x){
+          scroll(256, 0);
+          scrolled = true;
+          moved_x = true;
+          cur_x = 8;
+        }
+        else if (pad&PAD_LEFT && cur_x<=8 && scrolled){ 
+          scroll(0, 0);
+          scrolled = false;
+          moved_x = true;
+          cur_x = 240;
+        }
+        else if (!(pad&PAD_LEFT)&&!(pad&&PAD_RIGHT)) moved_x = false;
+        //else cur_x=0;
+        // move actor[i] up/down
+        if (pad&PAD_UP && cur_y>8 && !moved_y){ cur_y+=-8; moved_y = true;}
+        else if (pad&PAD_DOWN && cur_y<180 && !moved_y){ moved_y = true; cur_y+=8;}
+        else if (!(pad&PAD_UP)&&!(pad&&PAD_DOWN)) moved_y = false;
+        //else cur_y=0;
+        //cur_oam = oam_spr(cur_x, cur_y, 0x90, 0x0, cur_oam);
       }
-      else if (!(pad&PAD_LEFT)&&!(pad&&PAD_RIGHT)) moved_x = false;
-      //else cur_x=0;
-      // move actor[i] up/down
-      if (pad&PAD_UP && cur_y>8 && !moved_y){ cur_y+=-8; moved_y = true;}
-      else if (pad&PAD_DOWN && cur_y<180 && !moved_y){ moved_y = true; cur_y+=8;}
-      else if (!(pad&PAD_UP)&&!(pad&&PAD_DOWN)) moved_y = false;
-      //else cur_y=0;
-      //cur_oam = oam_spr(cur_x, cur_y, 0x90, 0x0, cur_oam);
-    }
-    cur_oam = oam_spr(cur_x, cur_y, 0x90, 0x0, cur_oam);
-    cur_oam = oam_spr(p_x, p_y, 0xd8, 0x0, cur_oam);
-    cur_oam = oam_spr(40,199,turn,0x0,cur_oam);
-    cur_oam = oam_meta_spr(portrait_x, portrait_y, cur_oam, metasprite);
-    if ((p_x == cur_x) && (p_y == cur_y) || p_locked){
-      vrambuf_put(NTADR_A(13,26), "95", 2);
-      vrambuf_put(NTADR_A(13,27), "05", 2);
-      vrambuf_put(NTADR_A(13,25), "10", 2);
-      vrambuf_put(NTADR_A(6,27), "20", 2);
-      portrait_x = 48;
-      portrait_y = 199;
-      if (pad&PAD_A){
-      p_locked = true;
+      cur_oam = oam_spr(cur_x, cur_y, 0x90, 0x0, cur_oam);
+      cur_oam = oam_spr(p_x, p_y, 0xd8, 0x0, cur_oam);
+      cur_oam = oam_spr(e_x, e_y, 0xd9, 0x0, cur_oam);
+      cur_oam = oam_spr(40,199,turn,0x0,cur_oam);
+      cur_oam = oam_meta_spr(portrait_x, portrait_y, cur_oam, metasprite);
+      if ((p_x == cur_x) && (p_y == cur_y) || p_locked){
+        vrambuf_put(NTADR_A(13,26), "95", 2);
+        vrambuf_put(NTADR_A(13,27), "05", 2);
+        vrambuf_put(NTADR_A(13,25), "10", 2);
+        vrambuf_put(NTADR_A(6,27), "20", 2);
+        portrait_x = 48;
+        portrait_y = 199;
+        if (pad&PAD_A){
+        p_locked = true;
+        }
+      }
+      else{
+        vrambuf_put(NTADR_A(13,26), "  ", 2);
+        vrambuf_put(NTADR_A(13,27), "  ", 2);
+        vrambuf_put(NTADR_A(13,25), "  ", 2);
+        vrambuf_put(NTADR_A(6,27), "  ", 2);
+        portrait_x = 250;
+        portrait_y = 250;
+        
       }
       if (p_locked){
-      	if ((pad&PAD_A)){
-          p_x = cur_x;
-          p_y = cur_y;
-      	}
+          if ((pad&PAD_A) && ((p_x != cur_x)|| (p_y != cur_y))){
+            if (((p_x - cur_x) + (p_y - cur_y) >= -16) && ((p_x - cur_x) + (p_y - cur_y) <= 16)){
+            p_x = cur_x;
+            p_y = cur_y;
+            p_phase_controller = true;
+            p_locked = false;
+            }
+          }
+        cur_oam = oam_spr(p_x +8, p_y, 0x02, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x -8, p_y, 0x02, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x, p_y +8, 0x02, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x, p_y-8, 0x02, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x +16, p_y, 0x02, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x -16, p_y, 0x02, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x, p_y +16, 0x02, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x, p_y-16, 0x02, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x +8, p_y +8, 0x02, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x -8, p_y -8, 0x02, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x - 8, p_y +8, 0x02, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x + 8, p_y-8, 0x02, 0x0, cur_oam);
+        
+        }
+      else {
+        cur_oam = oam_spr(p_x +8, p_y, 0x00, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x -8, p_y, 0x00, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x, p_y +8, 0x00, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x, p_y-8, 0x00, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x +16, p_y, 0x00, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x -16, p_y, 0x00, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x, p_y +16, 0x00, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x, p_y-16, 0x00, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x +8, p_y +8, 0x00, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x -8, p_y -8, 0x00, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x - 8, p_y +8, 0x00, 0x0, cur_oam);
+        cur_oam = oam_spr(p_x + 8, p_y-8, 0x00, 0x0, cur_oam);
       }
+      
+      if ((e_x ==  cur_x) && (e_y == cur_y)){
+        vrambuf_put(NTADR_A(17,26), "75", 2);
+        vrambuf_put(NTADR_A(17,27), "00", 2);
+        vrambuf_put(NTADR_A(17,25), "06", 2);
+        vrambuf_put(NTADR_A(24,27), "10", 2);
+        portrait_x = 192;
+        portrait_y = 199;
+      }
+      else{
+        vrambuf_put(NTADR_A(17,26), "  ", 2);
+        vrambuf_put(NTADR_A(17,27), "  ", 2);
+        vrambuf_put(NTADR_A(17,25), "  ", 2);
+        vrambuf_put(NTADR_A(24,27), "  ", 2);
+      }
+      if ((pad&PAD_B) && p_locked)
+        p_locked = false;
     }
     else{
-      vrambuf_put(NTADR_A(13,26), "  ", 2);
-      vrambuf_put(NTADR_A(13,27), "  ", 2);
-      vrambuf_put(NTADR_A(13,25), "  ", 2);
-      vrambuf_put(NTADR_A(6,27), "  ", 2);
-      portrait_x = 250;
-      portrait_y = 250;
+      if(e_x < p_x && e_y < p_y){
+        e_x += 8;
+        e_y += 8;
+      }
+      else if(e_x > p_x && e_y < p_y){
+        e_x -= 8;
+        e_y += 8;
+      }
+      else if(e_x > p_x && e_y > p_y){
+        e_x -= 8;
+        e_y -= 8;
+      }
+      else if(e_x < p_x && e_y > p_y){
+        e_x += 8;
+        e_y -= 8;
+      }
+      else if(e_x == p_x && e_y > p_y){
+        e_y -= 16;
+      }
+      else if(e_x < p_x && e_y == p_y){
+        e_x += 16;
+      }
+      else if(e_x == p_x && e_y < p_y){
+        e_y += 16;
+      }
+      else if(e_x > p_x && e_y == p_y){
+        e_x -= 16;
+      }
+      if(e_x == p_x && e_y == p_y){
+        e_x -= 8;
+      }
+      p_phase = true;
+      turn += 1;
     }
-    if ((pad&PAD_B) && p_locked)
-      p_locked = false;
     vrambuf_flush();
   }
 }
